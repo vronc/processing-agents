@@ -7,12 +7,12 @@ boolean debugCohesion=true;
 boolean debugResult=false;
   
 float x;
-int numAgents = 100;
+int numAgents = 40;
 Agent[] agents = new Agent[numAgents];
 int dimX = 1250;
 int dimY = 700;
-int gridPartitionX = 90;
-int gridPartitionY = 50;
+int gridPartitionX = 40;
+int gridPartitionY = 40;
 float gridCellDimX = dimX / (gridPartitionX-1);
 float gridCellDimY = dimY / (gridPartitionY-1);
 GridCell[][] grid = new GridCell[gridPartitionX][gridPartitionY];
@@ -79,7 +79,7 @@ class Agent {
   int posTrailLength = 3;
   PVector velocity;
   PVector acceleration;
-  float speed = 2;
+  float speed = 1.5;
   float agentSize;
   GridCell locationCell;
   float maxForce = 4;
@@ -87,7 +87,7 @@ class Agent {
   GridCell newLocationCell;
   int updateInc;
   color agentColor;
-  float sensorRange;
+  float personalSpaceRadius;
   PVector direction;
   
   Agent(float x, float y) {
@@ -102,7 +102,7 @@ class Agent {
     for (int i=0 ; i<posTrail.length ; i++)
       posTrail[i] = new PVector(position.x, position.y);
     updateInc = 0;
-    sensorRange = agentSize+10f;
+    personalSpaceRadius = agentSize+10f;
     wanderTarget = new PVector(random(0,dimX), random(0,dimY));
   }
   
@@ -133,7 +133,7 @@ class Agent {
     //agentSize=position.z*2;
     
     // TODO: make different forces have priority over others
-    double resultDistribution = 1.0;
+    float resultDistribution = 1.0;
     
     PVector result = new PVector(0, 0);
     int targets = 0;
@@ -142,20 +142,21 @@ class Agent {
       result.add(avb);
       resultDistribution -= 1;
       targets += 1;
-    } else {
+    }
     
-      if (ava.mag() > 0) {
-        result.add(ava);
-        targets += 1;
-        resultDistribution -= 0.5;
-      }
-      
-      if (coh.mag() > 0) {
-        result.add(coh);
-        targets += 1;
-        resultDistribution -= 0.1;
-      }
-      
+    if (ava.mag() > 0 && resultDistribution > 0) {
+      result.add(ava);
+      targets += 1;
+      resultDistribution = max(0.0, resultDistribution - 0.5);
+    }
+    
+    if (coh.mag() > 0 && resultDistribution > 0) {
+      result.add(coh);
+      targets += 1;
+
+    }
+    
+    if (resultDistribution > 0) {
       PVector wanderTarget = getWanderTarget();
       result.add(wanderTarget);
       targets += 1;
@@ -215,7 +216,7 @@ class Agent {
     PVector desired = new PVector(0,0);
     for (GridCell cell : this.locationCell.selfAndNeighbours) {
       for(Agent agent : cell.agents) {
-        if (PVector.dist(agent.position, this.position) < sensorRange) {
+        if (PVector.dist(agent.position, this.position) < personalSpaceRadius) {
           desired = desired.add(PVector.sub(this.position, agent.position));
         }
       }
@@ -260,13 +261,15 @@ class Agent {
 
   
    PVector cohesion() {
-    float neighborDist = 50;
+    float neighborDist = 40;
     PVector target = new PVector(0, 0);   // Start with empty vector to accumulate all positions
     int count = 0;
+    float personalSpaceRadiusUncertanity = random(-2f,2f);
+    
     for (GridCell cell : locationCell.selfAndNeighbours) {
       for (Agent other : cell.agents) {
         float d = PVector.dist(position, other.position);
-        if ((d > 0) && (d < neighborDist)) {
+        if ((d > personalSpaceRadius + personalSpaceRadiusUncertanity) && (d < neighborDist)) {
           target.add(other.position);
           count++;
         }
