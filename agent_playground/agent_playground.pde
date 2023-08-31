@@ -1,5 +1,11 @@
 import java.util.*;
 
+
+boolean debugWander=false;
+boolean debugAvoidAgents=true;
+boolean debugCohesion=true;
+boolean debugResult=false;
+  
 float x;
 int numAgents = 100;
 Agent[] agents = new Agent[numAgents];
@@ -11,7 +17,7 @@ float gridCellDimX = dimX / (gridPartitionX-1);
 float gridCellDimY = dimY / (gridPartitionY-1);
 GridCell[][] grid = new GridCell[gridPartitionX][gridPartitionY];
 boolean saveImage = false;
-boolean drawTrails = false;
+boolean drawTrails = true;
 float timing=0;
 float prevTiming;
 
@@ -70,15 +76,12 @@ void mouseClicked() {
 class Agent {
   PVector position;
   PVector[] posTrail;
-  int posTrailLength = 20;
+  int posTrailLength = 3;
   PVector velocity;
   PVector acceleration;
-  float speed = 3;
+  float speed = 2;
   float agentSize;
   GridCell locationCell;
-  boolean debugWander=false;
-  boolean debugAvoidAgents=true;
-  boolean debugCohesion=false;
   float maxForce = 4;
   PVector wanderTarget;
   GridCell newLocationCell;
@@ -100,7 +103,7 @@ class Agent {
       posTrail[i] = new PVector(position.x, position.y);
     updateInc = 0;
     sensorRange = agentSize+10f;
-    resetWanderTarget();
+    wanderTarget = new PVector(random(0,dimX), random(0,dimY));
   }
   
   void draw() {
@@ -139,26 +142,28 @@ class Agent {
       result.add(avb);
       resultDistribution -= 1;
       targets += 1;
-    }
-     if (ava.mag() > 0) {
-      result.add(ava);
-      targets += 1;
-      resultDistribution -= 0.5;
-    }
-    else if (coh.mag() > 0 && resultDistribution > 0) {
-      result.add(coh);
-      targets += 1;
-      resultDistribution -= 0.1;
-    }
+    } else {
     
-    if (result.mag() == 0) {
+      if (ava.mag() > 0) {
+        result.add(ava);
+        targets += 1;
+        resultDistribution -= 0.5;
+      }
+      
+      if (coh.mag() > 0) {
+        result.add(coh);
+        targets += 1;
+        resultDistribution -= 0.1;
+      }
+      
       PVector wanderTarget = getWanderTarget();
-      result = wanderTarget;
+      result.add(wanderTarget);
       targets += 1;
     }
     
     stroke(50);
-    if (debugWander) line(position.x, position.y, result.x, result.y);
+    if (debugResult) line(position.x, position.y, result.x, result.y);
+    
     seek(result.div(targets));
     
     velocity.add(acceleration);
@@ -211,7 +216,7 @@ class Agent {
     for (GridCell cell : this.locationCell.selfAndNeighbours) {
       for(Agent agent : cell.agents) {
         if (PVector.dist(agent.position, this.position) < sensorRange) {
-          desired = desired.add(PVector.sub(agent.position, this.position));
+          desired = desired.add(PVector.sub(this.position, agent.position));
         }
       }
     }
@@ -220,7 +225,7 @@ class Agent {
       return desired;
     }
     
-    target = PVector.sub(this.position, desired);
+    target = PVector.add(this.position, desired);
     
     if (target.mag() > 0 && debugAvoidAgents) {
       stroke(agentColor);
@@ -232,7 +237,7 @@ class Agent {
   PVector getWanderTarget() {
     float wanderOffset = 40f;
     float wanderRadius = 20f;
-    PVector wanderOffsetPos = PVector.add(new PVector(position.x, position.y), velocity.setMag(wanderOffset));
+    PVector wanderOffsetPos = PVector.add(position, velocity.copy().setMag(wanderOffset));
     
     if (random(1, 10) > 7) {
       float angle = random(-1f, 1f)*PI*2f;
@@ -252,9 +257,7 @@ class Agent {
     return wanderTarget;
   }
   
-  void resetWanderTarget() {
-    wanderTarget = new PVector(random(0,dimX), random(0,dimY));
-  }
+
   
    PVector cohesion() {
     float neighborDist = 50;
